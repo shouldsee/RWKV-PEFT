@@ -67,6 +67,9 @@ python train.py --load_model /home/rwkv/JL/model/RWKV-x060-World-1B6-v2.1-202403
 --accelerator gpu --devices 1 --precision bf16 --strategy deepspeed_stage_1 --grad_cp 1 \
 --my_testing "x060" \
 --train_type state
+
+
+python train.py --load_model /root/.cache/huggingface/hub/models--BlinkDL--rwkv-6-world/snapshots/bbcc459acd62ca2ec6d6b6a8f20336aa671d9ce1/RWKV-x060-World-7B-v2.1-20240507-ctx4096.pth --proj_dir /root/RWKW-PEFT/xueshan-2/state --data_file   /root/RWKV-PEFT/xueshan-2.txt --data_type "utf-16le" --vocab_size 65536 --ctx_len 4096 --epoch_steps 1000 --epoch_count 100 --epoch_begin 0 --epoch_save 5 --micro_bsz 4 --n_layer 32 --n_embd 4096 --pre_ffn 0 --head_qk 0 --lr_init 1 --lr_final 1e-1 --warmup_steps 0 --beta1 0.9 --beta2 0.99 --adam_eps 1e-8 --accelerator gpu --devices 1 --precision bf16 --strategy deepspeed_stage_1 --grad_cp 1 --my_testing "x060" --train_type state
 ```
 
 ### Quant Train
@@ -158,4 +161,11 @@ python3 train.py \
   --lora --lora_r 8 --lora_alpha 16 --lora_dropout 0.01 \
   --lora_load <lora checkpoint to continue training> \ # optional
   --lora_parts=att,ffn,time,ln # configure which parts to finetune
+```
+
+
+### Example: State tuning with raw text
+
+```
+python train.py     --load_model /root/.cache/huggingface/hub/models--BlinkDL--rwkv-6-world/snapshots/bbcc459acd62ca2ec6d6b6a8f20336aa671d9ce1/RWKV-x060-World-7B-v2.1-20240507-ctx4096.pth         --proj_dir /root/RWKW-PEFT/scifi/state --data_file   /root/RWKW-PEFT/input-scifi.txt --data_type "text" --vocab_size 65536 --ctx_len 4096             --epoch_steps 25 --epoch_count 3 --epoch_begin 1000 --epoch_save 1 --micro_bsz 1 --n_layer 32 --n_embd 4096                 --pre_ffn 0 --head_qk 0 --lr_init 0.05 --lr_final 0.05 --warmup_steps 0 --beta1 0.9 --beta2 0.99 --adam_eps 1e-8 --accelerator gpu --devices 1 --precision bf16 --strategy deepspeed_stage_1 --grad_cp 1 --my_testing "x060"             --train_type state 
 ```

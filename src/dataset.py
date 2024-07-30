@@ -67,6 +67,12 @@ class MyDataset(Dataset):
             rank_zero_info(f"Current vocab size = {self.vocab_size} (make sure it's correct)")
             self.data_size = self.data.shape[0]
             rank_zero_info(f"Data has {self.data_size} samples.")
+        elif args.data_type=='text':
+            self.data = open(args.data_file, "r",).read()
+            self.data = pipeline.encode(self.data)
+            self.vocab_size = args.vocab_size
+            self.data_size = len(self.data)
+
         else:
             if args.data_type == "dummy":
                 rank_zero_info("Building dummy data...")
@@ -167,8 +173,9 @@ class MyDataset(Dataset):
                             break
             elif args.data_type == "numpy":
                 dix = data[i : i + req_len]
-            else:
-                dix = [self.stoi[s] for s in data[i : i + req_len]]
+            elif args.data_type=='text':
+                dix = data[i : i + req_len]
+            #     dix = [self.stoi[s] for s in data[i : i + req_len]]
 
             if args.my_qa_mask == 1:
                 if data == self.data_pile:
