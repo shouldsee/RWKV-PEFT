@@ -576,12 +576,14 @@ class RWKV_Tmix_x060_state(MyModule):
         x = self.output(x * g)
         return x
 
-    def forward(self, x):
+    def forward(self, x, tstate=None):
         B, T, C = x.size()
         H = self.n_head
 
         r, k, v, g, w = self.jit_func(x)
-        x = RUN_CUDA_RWKV6_STATE(B, T, C, H, r, k, v, w, u=self.time_faaaa, s=self.time_state)
+        if tstate is None:
+            tstate = self.time_state
+        x = RUN_CUDA_RWKV6_STATE(B, T, C, H, r, k, v, w, u=self.time_faaaa, s=tstate)
 
         return self.jit_func_2(x, g)
 ########################################################################################################
@@ -1253,12 +1255,17 @@ class RWKV(pl.LightningModule):
                 sum_mask = torch.sum(mask).item()
                 logits = self(idx)
                 loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), reduction='none')
-                loss = torch.sum(loss * mask) / sum_mask
+                loss = torch.sum(loss * mask) / sum_mask 
+
             elif args.my_qa_mask != 1:
+                #### [actual branch]
                 idx, targets = batch
 
                 logits = self(idx)
                 loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+
+                B, T = idx.size()
+                sum_mask = B*T
 
                 # if '0' in os.environ["RWKV_MY_TESTING"]:
                 #     print('logits', logits)
@@ -1266,6 +1273,7 @@ class RWKV(pl.LightningModule):
                 #     print('idx', idx)
                 #     exit(0)
             else:
+                # print('')
                 idx, targets, mask = batch
                 mask = mask.view(-1)
                 sum_mask = torch.sum(mask).item()
@@ -1276,6 +1284,7 @@ class RWKV(pl.LightningModule):
                 if sum_mask == mask.shape[0]:
                     loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
                     # print('rank', self.global_rank, 'loss', loss.item())
+
                 else:
                     loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), reduction='none')
                     # loss_raw = loss
@@ -1292,6 +1301,8 @@ class RWKV(pl.LightningModule):
                     #             sss += loss_raw.view(-1)[i].float().item()
                     #             ccc += 1
                     #     print('rank', self.global_rank, 'loss', loss.item(), 'lavg', sss / ccc)#, 'tmp', tmp, 'input', idx)
+            ### [adding per-sequence extra]
+            loss = loss + args.my_per_seq_extra_loss*B/sum_mask
 
             return L2Wrap.apply(loss, logits)
 

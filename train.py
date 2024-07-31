@@ -18,6 +18,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--load_model", default="", type=str)  # full path, with .pth
     parser.add_argument("--wandb", default="", type=str)  # wandb project name. if "" then don't use wandb
+    parser.add_argument("--clearml", default="", type=str)  # clearml project name. if "" then don't use it
     parser.add_argument("--proj_dir", default="out", type=str)
     parser.add_argument("--random_seed", default="-1", type=int)
 
@@ -74,6 +75,8 @@ if __name__ == "__main__":
     parser.add_argument("--my_exit", default=99999999, type=int)
     parser.add_argument("--my_exit_tokens", default=0, type=int)
 
+    parser.add_argument("--my_per_seq_extra_loss", default=0., type=float)
+
     #LORA
     parser.add_argument("--emb", action="store_true")
     parser.add_argument("--lora", action="store_true")
@@ -82,6 +85,10 @@ if __name__ == "__main__":
     parser.add_argument("--lora_alpha", default=32, type=float)
     parser.add_argument("--lora_dropout", default=0.01, type=float)
     parser.add_argument("--lora_parts", default="att,ln,time", type=str)
+
+    ### state
+    parser.add_argument("--state_load", default="", type=str)
+
 
     #LISA
     parser.add_argument("--LISA", action="store_true")
@@ -127,6 +134,9 @@ if __name__ == "__main__":
         parser = Trainer.add_argparse_args(parser)
     args = parser.parse_args()
 
+
+
+
     ########################################################################################################
 
     import os, warnings, math, datetime, sys, time
@@ -168,6 +178,8 @@ if __name__ == "__main__":
         os.environ["RWKV_TRAIN_TYPE"]='states'
     elif args.train_type=='infctx':
         os.environ["RWKV_TRAIN_TYPE"]='infctx'
+
+    
 
     os.environ["WKV"]='fla' if args.fla else ''
     if args.dim_att <= 0:
@@ -290,6 +302,30 @@ if __name__ == "__main__":
         args.precision = 16
     else:
         args.precision = "bf16"
+
+    ######################### connect to clearml
+
+    clearml = None
+    ctask = None
+    check_log = 1
+    project_name = '_model_' + args.load_model + '_data_' + args.data_file
+    clogger = None
+    if args.clearml!="":
+        try:
+            import clearml
+            ctask = clearml.Task.init('rwkv-peft', args.clearml+'-'+ project_name,continue_last_task=True)
+            ctask.set_configuration_object('model_config',config_dict={
+                "cmd":" ".join(sys.argv),
+                **vars(args)})
+            clogger = ctask.get_logger()
+            is_log=1
+        except Exception as e:
+            if check_log:
+                print('[]set check_log=0 to avoid check')
+                raise e
+            is_log=0
+            pass        
+    args.clogger = clogger
 
     ########################################################################################################
 
@@ -444,6 +480,11 @@ if __name__ == "__main__":
         for name, m in model.named_modules():
             if hasattr(m, "quant") and callable(getattr(m, "quant")):
                     m.quant(args.quant)
+
+
+    if os.path.isfile(args.state_load):
+        model.load_state_dict(torch.load(args.state_load, map_location="cpu"),
+                              strict=False)
 
 
     if pl.__version__[0]=='2':

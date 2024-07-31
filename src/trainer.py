@@ -249,6 +249,9 @@ class train_callback(pl.Callback):
                 except Exception as e:
                     print('Error\n\n', e, '\n\n')
 
+        if self.args.clogger is not None:
+            self.args.clogger.report_scalar('loss', "epoch_loss_avg", value=trainer.my_epoch_loss, iteration =trainer.current_epoch)
+
         if trainer.is_global_zero:  # logging
             trainer.my_log.write(f"{args.epoch_begin + trainer.current_epoch} {trainer.my_epoch_loss:.6f} {math.exp(trainer.my_epoch_loss):.4f} {trainer.my_lr:.8f} {datetime.datetime.now()} {trainer.current_epoch}\n")
             trainer.my_log.flush()
