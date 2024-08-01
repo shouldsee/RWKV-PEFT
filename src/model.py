@@ -976,6 +976,26 @@ else:
             return (grad_output, gy)
 
 
+
+
+class RWKVState(nn.Module):
+    def __init__(self, args, layer_id):
+        super().__init__()
+        self.args = args
+        self.layer_id = layer_id
+
+
+        self.head_size = args.head_size_a
+        # assert HEAD_SIZE == self.head_size # change HEAD_SIZE to match args.head_size_a
+        self.n_head = H = args.dim_att // self.head_size
+        self.n_embd = C = args.n_embd
+
+
+        self.time_wkv_state    = nn.Parameter(torch.zeros((H, C//H, C//H)))
+        self.time_shift_state    = nn.Parameter(torch.zeros((C),))
+        self.channel_shift_state = nn.Parameter(torch.zeros((C),))
+
+
 class RWKV(pl.LightningModule):
     def __init__(self, args):
         super().__init__()
@@ -1005,6 +1025,10 @@ class RWKV(pl.LightningModule):
             self.register_buffer("copy_mask", torch.tril(torch.ones(args.ctx_len, args.ctx_len)))
         if args.dropout > 0:
             self.drop0 = nn.Dropout(p = args.dropout)
+
+        self.states = None
+        if args.train_type=='infctx_allstate':
+            self.states = nn.ModuleList([RWKVState(args, i) for i in range(args.n_layer)])
 
     def configure_optimizers(self):
         args = self.args
@@ -1145,8 +1169,12 @@ class RWKV(pl.LightningModule):
             C = args.n_embd
             H =  args.dim_att // args.head_size_a
             assert C==H*args.head_size_a
-            states = BlockStateList.create(args.n_layer, B, C, H, idx.device,
-                self.emb.weight.dtype)
+
+            if self.states is not None:
+                states = BlockStateList.from_rwkv_states(self.states,B, idx.device,self.emb.weight.dtype)
+            else:
+                states = BlockStateList.create(args.n_layer, B, C, H, idx.device,
+                    self.emb.weight.dtype)
 
             def checkpointed_step(idx, targets, prev_loss, last_shift_states,
                                 last_wkv_states, prev_token_amount):

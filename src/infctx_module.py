@@ -1,4 +1,6 @@
 import torch
+import torch.nn as nn
+
 ######state
 class TimeMixState:
     def __init__(self, shift_state: torch.Tensor, wkv_state: torch.Tensor):
@@ -24,11 +26,12 @@ class BlockStateList:
         self.shift_states = shift_states
 
     @staticmethod
-    def create(N, B, C, H, device, dtype):
+    def create(N, B, C, H, device, dtype, model=None):
         result = BlockStateList.empty(N, B, C, H, device, dtype)
-        result.wkv_states[:] = 0
-        result.wkv_states[:] = 0
-        result.shift_states[:] = 0
+        if model is None:
+            result.wkv_states[:] = 0
+            result.wkv_states[:] = 0
+            result.shift_states[:] = 0
         return result
 
     @staticmethod
@@ -38,6 +41,21 @@ class BlockStateList:
                                  dtype=torch.bfloat16)
         shift_states = torch.empty((N, 2, B, C), device=device, dtype=dtype)
         return BlockStateList(shift_states, wkv_states)
+
+
+    @staticmethod
+    def from_rwkv_states(states: nn.ModuleList, B,device, dtype,):
+        N = len(states)
+        H = states[0].n_head
+        C = states[0].n_embd
+        self = result = BlockStateList.empty(N, B, C, H, device, dtype)
+        for layer, state in enumerate(states):
+            self.shift_states[layer, 0,:] = state.time_shift_state[None]
+            self.wkv_states[layer,:] = state.time_wkv_state[None]
+            self.shift_states[layer, 1,:] = state.channel_shift_state[None]
+
+        return result
+
 
     def __getitem__(self, layer: int):
         return BlockState(

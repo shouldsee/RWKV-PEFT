@@ -240,6 +240,10 @@ class train_callback(pl.Callback):
                             lora_dict[name] = state
                     to_save_dict = lora_dict
 
+                if args.train_type == 'infctx_allstate':
+                    to_save_dict = {k: to_save_dict[k] for k in args.to_save_dict}
+                    pass
+
                 try:
                     my_save(
                         args, trainer,

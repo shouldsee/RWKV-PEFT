@@ -169,3 +169,18 @@ python3 train.py \
 ```
 python train.py     --load_model /root/.cache/huggingface/hub/models--BlinkDL--rwkv-6-world/snapshots/bbcc459acd62ca2ec6d6b6a8f20336aa671d9ce1/RWKV-x060-World-7B-v2.1-20240507-ctx4096.pth         --proj_dir /root/RWKW-PEFT/scifi/state --data_file   /root/RWKW-PEFT/input-scifi.txt --data_type "text" --vocab_size 65536 --ctx_len 4096             --epoch_steps 25 --epoch_count 3 --epoch_begin 1000 --epoch_save 1 --micro_bsz 1 --n_layer 32 --n_embd 4096                 --pre_ffn 0 --head_qk 0 --lr_init 0.05 --lr_final 0.05 --warmup_steps 0 --beta1 0.9 --beta2 0.99 --adam_eps 1e-8 --accelerator gpu --devices 1 --precision bf16 --strategy deepspeed_stage_1 --grad_cp 1 --my_testing "x060"             --train_type state 
 ```
+
+
+### Example: `--train_type infctx_allstate` training both wkv states and shift states
+
+```
+python train.py \
+    --load_model /root/rwkv_kit/download/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth \
+    --proj_dir /root/RWKW-PEFT/infctx-kehuanluxun/state --data_file  /root/RWKW-PEFT/input-test.txt \
+            --data_type "text" --vocab_size 65536 --ctx_len 4096 \
+            --epoch_steps 3 --epoch_count 3 --epoch_begin 1000 --epoch_save 1 --micro_bsz 3 \
+                --n_layer 24 --n_embd 2048 \
+                --pre_ffn 0 --head_qk 0 --lr_init 0.05 --lr_final 0.05 --warmup_steps 0 --beta1 0.9 --beta2 0.99 --adam_eps 1e-8 --accelerator gpu --devices 1 --precision bf16 --strategy deepspeed_stage_1 --grad_cp 1 --my_testing "x060" \
+            --train_type infctx_allstate --chunk_ctx 4096 --fla --my_testing "x060"             
+
+```

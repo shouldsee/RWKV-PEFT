@@ -176,9 +176,8 @@ if __name__ == "__main__":
     os.environ["RWKV_TRAIN_TYPE"]=''
     if args.train_type=='state':
         os.environ["RWKV_TRAIN_TYPE"]='states'
-    elif args.train_type=='infctx':
+    elif args.train_type in 'infctx infctx_allstate'.split() :
         os.environ["RWKV_TRAIN_TYPE"]='infctx'
-
     
 
     os.environ["WKV"]='fla' if args.fla else ''
@@ -351,13 +350,27 @@ if __name__ == "__main__":
     if args.lora or args.LISA or args.train_type=='state':
         model.requires_grad_(False)
         freeze=True
-    
-    if args.state_tune or args.train_type=='state':
+
+    args.to_save_dict = {}
+    if 0:
+        pass
+
+    elif args.state_tune or args.train_type=='state':
         for name, module in model.named_modules():
             for pname, param in module.named_parameters():
                 if 'state' in pname :
                     param.requires_grad = True
             break
+
+    elif args.train_type=='infctx_allstate':
+        model.requires_grad_(False)
+        for name, module in model.named_modules():
+            for pname, param in module.named_parameters():
+                if 'states.' in pname:
+                    args.to_save_dict[pname] = param
+                    param.requires_grad = True
+                    print(f'Saving {pname},{param.shape}')
+        
     elif args.LISA:
         import re
         select_layers = np.random.choice(range(args.n_layer), args.lisa_r, replace=False)
@@ -443,8 +456,10 @@ if __name__ == "__main__":
     #     for k in model.state_dict():
     #         if k not in load_keys:
     #             load_dict[k] = model.state_dict()[k]
-    model.load_state_dict(torch.load(args.load_model, map_location="cpu"), strict=(not freeze))
 
+    # model.load_state_dict(torch.load(args.load_model, map_location="cpu"), strict=(not freeze))
+    model.load_state_dict(torch.load(args.load_model, map_location="cpu"), strict=False)
+    
     ####multi-GPU training
     if os.path.isfile(f'{args.proj_dir}/init_pissa.pth'):
         pissa_init = torch.load(f'{args.proj_dir}/init_pissa.pth', map_location="cpu")
@@ -482,7 +497,8 @@ if __name__ == "__main__":
                     m.quant(args.quant)
 
 
-    if os.path.isfile(args.state_load):
+
+    if args.state_load and os.path.isfile(args.state_load):
         model.load_state_dict(torch.load(args.state_load, map_location="cpu"),
                               strict=False)
 
